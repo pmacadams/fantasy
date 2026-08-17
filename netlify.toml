@@ -1,0 +1,16 @@
+# Netlify build settings. Netlify reads this automatically — you should not need
+# to set anything in the dashboard except the two Supabase environment variables.
+
+[build]
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Hashed bundles never change under the same filename, so they can be cached
+# hard. The HTML itself stays uncached so a redeploy takes effect immediately.
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
