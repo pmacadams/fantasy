@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-base text-ink font-sans antialiased;
+    /* A faint vertical rule field, like a chalked-up war room wall. Static, no
+       animation — it exists to keep large dark areas from reading as dead. */
+    background-image: repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.018) 0px,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 64px
+    );
+  }
+
+  /* Numerals should never dance when the pick counter ticks over. */
+  .font-mono,
+  .font-display {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-signal ring-offset-2 ring-offset-base;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .eyebrow {
+    @apply font-display text-eyebrow uppercase tracking-[0.18em] text-dim;
+  }
+
+  .panel {
+    @apply border border-line bg-panel;
+  }
+
+  /* Buttons: flat, high-contrast, no gradient, generous target */
+  .btn {
+    @apply inline-flex items-center justify-center border font-display uppercase
+           tracking-[0.12em] transition-colors disabled:cursor-not-allowed
+           disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn border-signal bg-signal text-base hover:bg-[#ffc247];
+  }
+  .btn-ghost {
+    @apply btn border-edge bg-raised text-ink hover:border-dim hover:bg-line;
+  }
+  .btn-danger {
+    @apply btn border-alert/60 bg-alert/10 text-alert hover:bg-alert/20;
+  }
+
+  .field {
+    @apply w-full border border-edge bg-raised px-3 py-2 text-ink
+           placeholder:text-dim focus:border-signal;
+  }
+}
+
+@layer utilities {
+  /* One source of truth for position colour, used by badges, board cells and
+     the roster rail. */
+  .pos-QB { --pos: theme("colors.qb"); }
+  .pos-RB { --pos: theme("colors.rb"); }
+  .pos-WR { --pos: theme("colors.wr"); }
+  .pos-TE { --pos: theme("colors.te"); }
+  .pos-K  { --pos: theme("colors.k"); }
+  .pos-DST { --pos: theme("colors.dst"); }
+
+  .pos-text { color: var(--pos, theme("colors.muted")); }
+  .pos-rule { border-left: 3px solid var(--pos, theme("colors.edge")); }
+  .pos-wash { background-color: color-mix(in srgb, var(--pos) 9%, transparent); }
+
+  .scroll-x {
+    scrollbar-width: thin;
+    scrollbar-color: theme("colors.edge") transparent;
+  }
+  .scroll-x::-webkit-scrollbar { height: 8px; width: 8px; }
+  .scroll-x::-webkit-scrollbar-thumb { background: theme("colors.edge"); }
+
+  @keyframes flash-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+  }
+  .flash-in { animation: flash-in 180ms ease-out; }
+
+  @keyframes pulse-clock {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  .pulse-clock { animation: pulse-clock 2s ease-in-out infinite; }
+}
