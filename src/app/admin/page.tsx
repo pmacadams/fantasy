@@ -15,6 +15,7 @@ import {
 } from "@/components/Gates";
 import { isConfigured, readableError, rpc } from "@/lib/supabase";
 import { useDraft, useLocalPref, usePin } from "@/lib/useDraft";
+import { parsePlayerPaste } from "@/lib/importPlayers";
 import { roundForPick } from "@/lib/snake";
 import type { DraftStatus, League, Pick } from "@/lib/types";
 
@@ -505,7 +506,7 @@ function PlayerImport({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const rows = useMemo(() => parseCsv(text), [text]);
+  const { rows, skipped, problem } = useMemo(() => parsePlayerPaste(text), [text]);
 
   const submit = async () => {
     setBusy(true);
@@ -527,16 +528,17 @@ function PlayerImport({
   return (
     <Section
       title="Player pool"
-      note="Paste a ranking export to refresh names, teams, byes and ADP. Anyone already drafted keeps his square."
+      note="Paste a ranking export — from a file or straight out of a spreadsheet. Anyone already drafted keeps his square."
     >
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        rows={6}
-        placeholder={"name,position,nfl_team,bye_week,rank,adp\nJa'Marr Chase,WR,CIN,6,1,1.2"}
+        rows={8}
+        placeholder={"Player,Pos,Team,Bye,ADP\nJa'Marr Chase,WR1,CIN,6,1.2"}
         className="field font-mono text-xs leading-relaxed"
       />
-      <div className="mt-2 flex items-center gap-3">
+
+      <div className="mt-2 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => void submit()}
@@ -545,46 +547,35 @@ function PlayerImport({
         >
           {busy ? "Importing…" : `Import ${rows.length || ""} players`}
         </button>
-        <span className="font-mono text-[11px] text-dim">
-          Header row required. Extra columns are ignored.
-        </span>
+
+        {problem ? (
+          <span className="font-mono text-[11px] text-alert">{problem}</span>
+        ) : rows.length ? (
+          <span className="font-mono text-[11px] text-muted">
+            {rows.length} ready
+            {skipped ? ` · ${skipped} skipped (free agents or unreadable rows)` : ""}
+          </span>
+        ) : (
+          <span className="font-mono text-[11px] text-dim">
+            Header row required. Needs name, position and team columns — bye, rank
+            and adp are used if present.
+          </span>
+        )}
       </div>
+
+      {rows.length ? (
+        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border border-line bg-panel px-3 py-2 font-mono text-[11px] text-muted">
+          {rows.slice(0, 6).map((r) => (
+            <li key={String(r.id)}>
+              {String(r.name)}{" "}
+              <span className="text-dim">
+                {String(r.position)} · {String(r.nfl_team)}
+              </span>
+            </li>
+          ))}
+          {rows.length > 6 ? <li className="text-dim">+{rows.length - 6} more</li> : null}
+        </ul>
+      ) : null}
     </Section>
   );
-}
-
-const slugify = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/['’.]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-function parseCsv(text: string) {
-  const lines = text.trim().split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) return [];
-  const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
-  const col = (name: string) => header.indexOf(name);
-  const iName = col("name");
-  const iPos = col("position");
-  const iTeam = col("nfl_team") >= 0 ? col("nfl_team") : col("team");
-  if (iName < 0 || iPos < 0 || iTeam < 0) return [];
-
-  return lines.slice(1).flatMap((line) => {
-    const cells = line.split(",").map((c) => c.trim());
-    const name = cells[iName];
-    if (!name) return [];
-    return [
-      {
-        id: slugify(name),
-        name,
-        position: cells[iPos]?.toUpperCase(),
-        nfl_team: cells[iTeam]?.toUpperCase(),
-        bye_week: cells[col("bye_week")] ?? null,
-        rank: cells[col("rank")] ?? null,
-        adp: cells[col("adp")] ?? null,
-        pos_rank: cells[col("pos_rank")] ?? null,
-      },
-    ];
-  });
 }
