@@ -7,6 +7,9 @@ import { posClass } from "./PositionTag";
 /**
  * Search box plus results. Tapping a row commits the pick — there is no
  * confirm step, because the undo button is the confirm step.
+ *
+ * When `onAddMissing` is passed, a name that isn't in the pool can be added on
+ * the spot. The draft room can't wait for someone to go fix a spreadsheet.
  */
 export function PlayerSearch({
   available,
@@ -15,6 +18,7 @@ export function PlayerSearch({
   disabled,
   autoFocus = false,
   limit = 25,
+  onAddMissing,
 }: {
   available: IndexedPlayer[];
   onSelect: (player: IndexedPlayer) => void;
@@ -22,6 +26,7 @@ export function PlayerSearch({
   disabled?: boolean;
   autoFocus?: boolean;
   limit?: number;
+  onAddMissing?: (name: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,6 +43,10 @@ export function PlayerSearch({
     prevPending.current = pendingId;
   }, [pendingId]);
 
+  const typed = query.trim();
+  const canAdd =
+    Boolean(onAddMissing) && typed.length >= 2 && !disabled && !pendingId;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="sticky top-0 z-10 bg-base px-4 pb-3 pt-3">
@@ -47,8 +56,9 @@ export function PlayerSearch({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && results[0] && !disabled && !pendingId) {
-                onSelect(results[0]);
+              if (e.key === "Enter" && !disabled && !pendingId) {
+                if (results[0]) onSelect(results[0]);
+                else if (canAdd) onAddMissing?.(typed);
               }
               if (e.key === "Escape") setQuery("");
             }}
@@ -90,50 +100,76 @@ export function PlayerSearch({
         </div>
 
         {results.length === 0 ? (
-          <p className="border border-dashed border-line px-4 py-8 text-center text-muted">
-            No one left matching “{query}”. Check the spelling, or he may already
-            be drafted.
-          </p>
+          <div className="border border-dashed border-line px-4 py-8 text-center">
+            <p className="text-muted">
+              Nobody left matching “{query}”. Check the spelling — he may already
+              be drafted.
+            </p>
+            {canAdd ? (
+              <button
+                type="button"
+                onClick={() => onAddMissing?.(typed)}
+                className="btn-primary mt-5 h-12 w-full px-5"
+              >
+                Add {typed} to the pool
+              </button>
+            ) : null}
+          </div>
         ) : (
-          <ul className="divide-y divide-line border-y border-line">
-            {results.map((p) => {
-              const isPending = pendingId === p.id;
-              return (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    disabled={disabled || Boolean(pendingId)}
-                    onClick={() => onSelect(p)}
-                    className={`${posClass(p.position)} pos-rule flex w-full items-center
-                                gap-3 px-3 py-3.5 text-left transition-colors
-                                active:bg-raised disabled:opacity-60
-                                ${isPending ? "bg-signal/10" : "hover:bg-panel"}`}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[19px] font-semibold leading-tight">
-                        {p.name}
+          <>
+            <ul className="divide-y divide-line border-y border-line">
+              {results.map((p) => {
+                const isPending = pendingId === p.id;
+                return (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      disabled={disabled || Boolean(pendingId)}
+                      onClick={() => onSelect(p)}
+                      className={`${posClass(p.position)} pos-rule flex w-full items-center
+                                  gap-3 px-3 py-3.5 text-left transition-colors
+                                  active:bg-raised disabled:opacity-60
+                                  ${isPending ? "bg-signal/10" : "hover:bg-panel"}`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[19px] font-semibold leading-tight">
+                          {p.name}
+                        </span>
+                        <span className="mt-0.5 block font-mono text-[11px] uppercase tracking-wider">
+                          <span className="pos-text font-semibold">{p.position}</span>
+                          <span className="text-dim"> · </span>
+                          <span className="text-muted">{p.nfl_team}</span>
+                          {p.bye_week ? (
+                            <span className="text-dim"> · BYE {p.bye_week}</span>
+                          ) : null}
+                        </span>
                       </span>
-                      <span className="mt-0.5 block font-mono text-[11px] uppercase tracking-wider">
-                        <span className="pos-text font-semibold">{p.position}</span>
-                        <span className="text-dim"> · </span>
-                        <span className="text-muted">{p.nfl_team}</span>
-                        {p.bye_week ? (
-                          <span className="text-dim"> · BYE {p.bye_week}</span>
-                        ) : null}
+                      <span className="shrink-0 font-mono text-xs text-dim">
+                        {isPending ? (
+                          <span className="text-signal">SAVING…</span>
+                        ) : (
+                          p.pos_rank ?? ""
+                        )}
                       </span>
-                    </span>
-                    <span className="shrink-0 font-mono text-xs text-dim">
-                      {isPending ? (
-                        <span className="text-signal">SAVING…</span>
-                      ) : (
-                        p.pos_rank ?? ""
-                      )}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {canAdd ? (
+              <button
+                type="button"
+                onClick={() => onAddMissing?.(typed)}
+                className="mt-3 w-full border border-dashed border-line px-3 py-3.5
+                           text-left text-sm text-muted transition-colors
+                           hover:border-edge hover:text-ink"
+              >
+                Not the guy you want? Add{" "}
+                <span className="font-semibold text-ink">{typed}</span> to the pool
+              </button>
+            ) : null}
+          </>
         )}
       </div>
     </div>
